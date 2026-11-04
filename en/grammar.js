@@ -1,4 +1,4 @@
-/* 예시 숙어·표현 카드. 표현 탭에서 직접 추가하면 이 예시는 숨겨져요. ex의 {중괄호}가 빈칸 문제 자리예요. */
+/* 예시 숙어 카드. 숙어 탭에서 직접 추가하면 이 예시는 숨겨져요. ex의 {중괄호}가 빈칸 문제 자리예요. */
 window.N1_GRAMMAR = [
   { id:"e-takepart", cat:"예시 · 숙어", p:"take part in", conn:"take part in + 명사", m:"~에 참가하다", ex:"Over 200 companies will {take part in} the trade fair.", ko:"200개가 넘는 회사가 무역 박람회에 참가할 것이다.", sim:"participate in" },
   { id:"e-responsible", cat:"예시 · 숙어", p:"be responsible for", conn:"be responsible for + 명사/-ing", m:"~을 책임지다, 담당하다", ex:"Ms. Kim {is responsible for} the new project.", ko:"김 씨가 새 프로젝트를 책임지고 있다.", sim:"be in charge of" },

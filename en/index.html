@@ -220,26 +220,26 @@ tr.done td.k,tr.done td.r,tr.done td.ko{color:var(--muted)}
   <section class="view" id="v-home" hidden>
     <div class="hero">
       <div><h1>영단어 플래시</h1><p class="lead" id="updatedLine"></p></div>
-      <div class="dday"><b id="ddayNum">D-34</b><input type="date" id="examDate" aria-label="시험일"></div>
+      <div class="dday" hidden><b id="ddayNum">D-34</b><input type="date" id="examDate" aria-label="시험일"></div>
     </div>
     <div>
       <h2>오늘</h2>
       <div class="today">
-        <div class="stat"><b id="sNew">0</b><span>새로 외울 단어</span></div>
+        <div class="stat"><b id="sNew">0</b><span>외운 단어</span></div>
         <div class="stat" id="sDueBox"><b id="sDue">0</b><span>복습 대기</span></div>
-        <div class="stat"><b id="sGram">0</b><span>새 표현</span></div>
+        <div class="stat"><b id="sLeft">0</b><span>남은 단어</span></div><div class="stat" hidden><b id="sGram">0</b></div>
       </div>
-      <p class="small" id="todayHint"></p>
+      <p class="small" id="todayHint" hidden></p>
     </div>
     <div class="row">
       <button class="primary" id="goReview">복습 퀴즈 시작</button>
       <button id="goFlash">단어 플래시</button>
-      <button id="goGram">표현 카드</button>
+      <button id="goGram">숙어 카드</button>
     </div>
     <div class="panel prog">
       <h2 style="margin:0">진도</h2>
       <div class="line"><span>단어</span><span class="bar"><i id="pW"></i></span><em id="pWt"></em></div>
-      <div class="line"><span>표현</span><span class="bar"><i id="pG"></i></span><em id="pGt"></em></div>
+      <div class="line"><span>숙어</span><span class="bar"><i id="pG"></i></span><em id="pGt"></em></div>
       <div class="line"><span>정답률</span><span class="bar"><i id="pA"></i></span><em id="pAt"></em></div>
     </div>
     <div class="panel" style="display:flex;flex-direction:column;gap:8px">
@@ -327,7 +327,7 @@ tr.done td.k,tr.done td.r,tr.done td.ko{color:var(--muted)}
 
   <!-- GRAMMAR -->
   <section class="view" id="v-grammar" hidden>
-    <div><h1>Phrases</h1><p class="lead">숙어·표현 카드예요. 카드를 누르면 뜻이 보여요. 예문의 색칠된 부분이 표현이에요.</p></div>
+    <div><h1>Phrases</h1><p class="lead">숙어 카드예요. 카드를 누르면 뜻이 보여요. 예문의 색칠된 부분이 표현이에요.</p></div>
     <div class="row">
       <select id="gCat" aria-label="표현 범위"></select>
       <label class="small"><input type="checkbox" id="gHide" checked> 뜻 가리기</label>
@@ -361,7 +361,7 @@ tr.done td.k,tr.done td.r,tr.done td.ko{color:var(--muted)}
   <a href="#home" data-v="home"><span class="g">⌂</span>홈</a>
   <a href="#words" data-v="words"><span class="g">Aa</span>단어</a>
   <a href="#quiz" data-v="quiz"><span class="g">?</span>퀴즈</a>
-  <a href="#grammar" data-v="grammar"><span class="g">“”</span>표현</a>
+  <a href="#grammar" data-v="grammar"><span class="g">“”</span>숙어</a>
   <a href="#review" data-v="review"><span class="g">↺</span>복습<span class="badge" id="navBadge" hidden></span></a>
 </div></nav>
 
@@ -499,7 +499,7 @@ function renderHome(){
   const n=daysLeft();$("ddayNum").textContent=isNaN(n)?"D-?":n>0?"D-"+n:n===0?"D-DAY":"D+"+(-n);
   const ws=allWords(),wm=ws.filter(mastered).length,gm=GRAM.filter(gMastered).length;
   const studyDays=Math.max(1,(isNaN(n)?30:n)-3);
-  $("sNew").textContent=Math.ceil((ws.length-wm)/studyDays);
+  $("sNew").textContent=wm;$("sLeft").textContent=ws.length-wm;
   $("sGram").textContent=Math.ceil((GRAM.length-gm)/studyDays);
   const due=dueKeys().length;$("sDue").textContent=due;$("sDueBox").classList.toggle("alert",due>0);
   $("todayHint").textContent=isNaN(n)?"오른쪽 위에 시험일을 정하면 하루에 외울 개수를 계산해 드려요.":n>3?`남은 단어를 시험 3일 전까지 끝내는 속도예요. 마지막 3일은 복습만 하도록 비워 뒀어요.`:"이제 새 단어보다 복습과 오답 노트에 집중하세요.";
@@ -508,9 +508,9 @@ function renderHome(){
   $("pG").style.width=(GRAM.length?gm/GRAM.length*100:0)+"%";$("pGt").textContent=`${gm}/${GRAM.length}`;
   let R=0,W=0;Object.values(stats).forEach(s=>{R+=s.right||0;W+=s.wrong||0});
   $("pA").style.width=(R+W?R/(R+W)*100:0)+"%";$("pAt").textContent=R+W?Math.round(R/(R+W)*100)+"%":"—";
-  $("updatedLine").textContent=`단어 ${ws.length}개 · 표현 ${GRAM.length}개`+(DATA.updated?` · ${DATA.updated} 업데이트`:"");
+  $("updatedLine").textContent=`단어 ${ws.length}개 · 숙어 ${GRAM.length}개`+(DATA.updated?` · ${DATA.updated} 업데이트`:"");
   $("dataStatus").textContent=USING_IMPORT?`가져온 파일 사용 중 · ${DATA.updated||"날짜 없음"} · 단어 ${ws.length}개, 표현 ${GRAM.length}개`
-    :!SAMPLE_WORDS?`챕터 ${CH.length}개 · 단어 ${ws.length}개 · 표현 ${GRAM.length}개`+(custom.length?` (이 폰에서 직접 추가한 챕터 ${custom.length}개 포함)`:"")
+    :!SAMPLE_WORDS?`챕터 ${CH.length}개 · 단어 ${ws.length}개`+(custom.length?` (이 폰에서 직접 추가한 챕터 ${custom.length}개 포함)`:"")
     :"아직 내 단어장이 없어서 예시 단어를 보여주고 있어요. 단어 탭 아래에서 사진·PDF로 챕터를 추가하세요.";
   $("dataReset").hidden=!USING_IMPORT;$("dataReset").textContent="가져온 파일 지우기";delete $("dataReset").dataset.armed;
   const standalone=matchMedia("(display-mode: standalone)").matches;
@@ -787,7 +787,7 @@ const QTYPES={mix:"섞어서",spell:"철자 고르기 (함정 보기)",mean:"단
 function sources(){
   const s=[{v:"due",t:`오늘 복습 (${dueKeys().length})`},{v:"wrong",t:`오답 노트 (${wrongKeys().length})`},{v:"all",t:"전체 단어"},{v:"unknown",t:"못 외운 단어"}];
   CH.forEach(c=>s.push({v:"ch:"+c.id,t:"단어 · "+c.name}));
-  s.push({v:"grammar",t:"표현 전체"});gramCats().forEach(c=>s.push({v:"gcat:"+c,t:"표현 · "+c}));
+  if(GRAM.length)s.push({v:"grammar",t:"숙어 전체"});gramCats().forEach(c=>s.push({v:"gcat:"+c,t:"숙어 · "+c}));
   if(BOOKQ.length){s.push({v:"book",t:`책 문제 전체 (${BOOKQ.length})`});bookSets().forEach(n=>s.push({v:"bset:"+n,t:"책 문제 · "+n}))}
   return s;
 }
