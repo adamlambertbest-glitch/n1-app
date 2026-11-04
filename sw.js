@@ -1,9 +1,9 @@
 /* 오프라인용: 앱 파일은 캐시해 두고, 온라인이면 항상 새 버전(새 단어)을 받아와 갱신합니다. */
-const CACHE = "n1-v4";
+const CACHE = "n1-v5";
 const SHELL = ["./", "./index.html", "./words.js", "./grammar.js", "./grammar-book.js", "./questions.js", "./reading.js", "./manifest.webmanifest", "./icon-192.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener("activate", e => {
-  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))));
+  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith("n1-") && k !== CACHE).map(k => caches.delete(k)))));
   self.clients.claim();
 });
 self.addEventListener("fetch", e => {
