@@ -212,6 +212,27 @@ tr.done td.k::after{content:none}
 tr.done td.k,tr.done td.r,tr.done td.ko{color:var(--muted)}
 .gadd{display:flex;flex-direction:column;gap:8px}
 .gdel{all:unset;cursor:pointer;font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:2px 10px}
+/* ---------- 단어 검색 ---------- */
+.fab{position:fixed;z-index:30;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(var(--nav-h) + 14px + env(safe-area-inset-bottom,0px));
+  border:none;border-radius:99px;min-width:52px;height:52px;padding:0 16px;background:var(--ai);color:var(--surface);font-size:18px;font-weight:600;
+  box-shadow:0 4px 14px rgba(0,0,0,.18);display:flex;align-items:center;gap:6px;max-width:calc(100vw - 32px)}
+.fab .q{font-family:var(--f-jp);font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw}
+.sheet-bg{position:fixed;inset:0;z-index:60;background:rgba(10,14,22,.45)}
+.sheet{position:fixed;z-index:61;left:0;right:0;bottom:0;max-height:86vh;overflow-y:auto;background:var(--bg);border-radius:18px 18px 0 0;
+  padding:16px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.sheet .in{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.sheet .top{display:flex;gap:8px;align-items:center}
+.sheet .top input{flex:1;min-width:0;font-size:18px}
+.lk{display:flex;flex-direction:column;gap:8px}
+.lk .it{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.lk .k{font-family:var(--f-jp-display);font-size:20px;font-weight:700}
+.lk .r{font-family:var(--f-jp);color:var(--ai)}
+.lk .m{flex:1 1 140px;min-width:0}
+.lk .c{font-size:11px;color:var(--muted);width:100%}
+.ext{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ext a{display:block;text-align:center;text-decoration:none;border:1px solid var(--line);border-radius:10px;padding:10px 4px;color:var(--ai);background:var(--surface);font-weight:600;font-size:14px}
+.addw{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.addw .full{grid-column:1/-1}
 @media (prefers-reduced-motion:reduce){.card,.qbar i{transition:none}}
 </style>
 
@@ -365,6 +386,16 @@ tr.done td.k,tr.done td.r,tr.done td.ko{color:var(--muted)}
   </section>
 </div>
 
+<button class="fab" id="fab" aria-label="단어 검색">🔍<span class="q" id="fabQ" hidden></span></button>
+<div class="sheet-bg" id="lkBg" hidden></div>
+<div class="sheet" id="lk" role="dialog" aria-modal="true" aria-label="단어 검색" hidden><div class="in">
+  <div class="top"><input class="field" id="lkIn" placeholder="모르는 단어 (한자·가나·한글)" autocomplete="off" aria-label="검색어"><button id="lkX" aria-label="닫기">닫기</button></div>
+  <div id="lkRes" class="lk"></div>
+  <div><h2 style="margin-bottom:6px">사전에서 찾기</h2><div class="ext" id="lkExt"></div></div>
+  <details class="panel" id="lkAdd"><summary style="cursor:pointer;font-weight:600">내 단어장에 추가</summary>
+    <div class="addw" style="margin-top:10px"><input class="field" id="lkK" placeholder="漢字"><input class="field" id="lkR" placeholder="かな"><input class="field full" id="lkM" placeholder="한글 뜻" style="font-family:var(--f-ko)">
+    <button class="primary full" id="lkSave">"내가 찾은 단어"에 추가</button><span class="msg full" id="lkMsg"></span></div></details>
+</div></div>
 <nav class="tabs" aria-label="메뉴"><div class="in">
   <a href="#home" data-v="home"><span class="g">家</span>홈</a>
   <a href="#words" data-v="words"><span class="g">単</span>단어</a>
@@ -977,6 +1008,58 @@ function renderRead(){
 $("readAll").onclick=()=>{Q=null;const items=shuffle(readQs());if(!items.length)return;startQuiz({src:"read",type:"mix",count:999})};
 $("readWrong").onclick=()=>startQuiz({src:"readwrong",type:"mix",count:999});
 
+
+/* ---------- 단어 검색 ---------- */
+let lkSel="";
+const isJP=t=>/[぀-ヿ㐀-鿿々]/.test(t),hasKanji=t=>/[㐀-鿿々]/.test(t);
+function lookup(q){
+  q=q.trim();const out=[];if(!q)return out;const ql=q.toLowerCase(),seen=new Set();
+  const addW=(w,why)=>{if(seen.has(w.key))return;seen.add(w.key);out.push({w,why})};
+  const ws=allWords();
+  ws.forEach(w=>{if(w.k===q||w.r===q)addW(w,"")});
+  ws.forEach(w=>{if((w.k&&w.k.includes(q))||(w.r&&w.r.includes(q))||(!isJP(q)&&q.length>=1&&w.m.toLowerCase().includes(ql)))addW(w,"")});
+  if(isJP(q)&&q.length>=2)ws.forEach(w=>{const k=w.k||w.r;if(k&&k.length>=2&&q.includes(k.replace(/だ$/,"")))addW(w,"선택한 문장 속 단어")});
+  GRAM.forEach(g=>{const p=g.p.replace(/[〜~①-⑨\s]/g,"");if(p&&(g.p.includes(q)||(isJP(q)&&(q===p||(p.length>=2&&q.includes(p))))||(!isJP(q)&&g.m.toLowerCase().includes(ql))))out.push({g})});
+  return out.slice(0,30);
+}
+function renderLookup(){
+  const q=$("lkIn").value.trim(),res=lookup(q),chName=id=>CH.find(c=>c.id===id)?.name||"";
+  $("lkRes").innerHTML=!q?`<p class="small" style="margin:0">독해 지문이나 예문에서 모르는 부분을 꾹 눌러 선택한 뒤 🔍를 누르면 바로 찾아져요.</p>`
+    :res.length?res.map(x=>x.g?`<div class="it"><span class="k">${esc(x.g.p)}</span><span class="m">${esc(x.g.m)}</span><span class="c">문법 · ${esc(x.g.cat||"")}</span></div>`
+      :`<div class="it"><span class="k">${esc(x.w.k||x.w.r)}</span><span class="r">${trapHTML(x.w.r,x.w.k)}</span><span class="m">${esc(x.w.m)}</span><button class="sp" data-r="${esc(x.w.r)}" aria-label="발음 듣기" style="padding:4px 8px">🔊</button><span class="c">${x.why?x.why+" · ":""}${esc(chName(x.w.ch))}</span></div>`).join("")
+    :`<p class="small" style="margin:0">내 단어장에는 없어요. 아래 사전에서 찾아보세요.</p>`;
+  $("lkRes").querySelectorAll(".sp").forEach(b=>b.onclick=()=>speak(b.dataset.r));
+  const e=encodeURIComponent(q);
+  $("lkExt").innerHTML=q?`<a href="https://ja.dict.naver.com/#/search?range=all&query=${e}" target="_blank" rel="noopener">네이버 사전</a><a href="https://papago.naver.com/?sk=${isJP(q)?"ja":"ko"}&tk=${isJP(q)?"ko":"ja"}&st=${e}" target="_blank" rel="noopener">파파고</a><a href="https://jisho.org/search/${e}" target="_blank" rel="noopener">Jisho</a>`
+    :`<p class="small" style="margin:0;grid-column:1/-1">검색어를 넣으면 사전 링크가 생겨요.</p>`;
+  if(!$("lkK").dataset.touched){$("lkK").value=hasKanji(q)?q:"";$("lkR").value=isJP(q)&&!hasKanji(q)?q:""}
+}
+function openLookup(q){
+  $("lk").hidden=false;$("lkBg").hidden=false;document.body.style.overflow="hidden";
+  delete $("lkK").dataset.touched;$("lkMsg").textContent="";$("lkM").value="";
+  $("lkIn").value=(q||"").slice(0,40);renderLookup();if(!q)setTimeout(()=>{try{$("lkIn").focus()}catch(e){}},50);
+}
+function closeLookup(){$("lk").hidden=true;$("lkBg").hidden=true;document.body.style.overflow=""}
+$("fab").onclick=()=>{const q=lkSel;lkSel="";$("fabQ").hidden=true;openLookup(q)};
+$("lkX").onclick=closeLookup;$("lkBg").onclick=closeLookup;
+$("lkIn").oninput=renderLookup;
+["lkK","lkR"].forEach(id=>$(id).oninput=()=>{$("lkK").dataset.touched="1"});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("lk").hidden)closeLookup()});
+document.addEventListener("selectionchange",()=>{
+  let t="";try{const sl=getSelection();t=sl&&sl.rangeCount?String(sl).trim():"";
+    if(t){const n=sl.anchorNode&&(sl.anchorNode.nodeType===1?sl.anchorNode:sl.anchorNode.parentElement);if(n&&n.closest("#lk,input,textarea"))t=""}}catch(e){}
+  if(t&&t.length<=40){lkSel=t;$("fabQ").textContent=t;$("fabQ").hidden=false}
+  else if(!t){setTimeout(()=>{let still="";try{still=String(getSelection()).trim()}catch(e){}if(!still){lkSel="";$("fabQ").hidden=true}},400)}
+});
+$("lkSave").onclick=()=>{
+  const k=$("lkK").value.trim(),r=$("lkR").value.trim(),m=$("lkM").value.trim();
+  if(!r||!m){$("lkMsg").style.color="var(--bad)";$("lkMsg").textContent="かな와 한글 뜻은 꼭 적어 주세요. 사전에서 확인해서 넣으면 정확해요.";return}
+  let c=custom.find(x=>x.id==="lookup");if(!c){c={id:"lookup",name:"내가 찾은 단어",words:[]};custom.push(c)}
+  if(c.words.some(w=>(w[0]||w[1])===(k||r)&&w[1]===r)){$("lkMsg").style.color="var(--bad)";$("lkMsg").textContent="이미 들어 있는 단어예요.";return}
+  c.words.push([k&&k!==r?k:"",r,m]);if(!saveCustom())return;
+  $("lkMsg").style.color="";$("lkMsg").textContent=`'${k||r}'를 "내가 찾은 단어"에 넣었어요. 단어 탭에서 플래시·퀴즈로 외울 수 있어요.`;
+  $("lkR").value="";$("lkM").value="";renderLookup();
+};
 /* ---------- boot ---------- */
 /* ---------- 비밀번호 동기화: GitHub의 잠긴 단어 파일(data.enc)을 풀어서 불러와요 ---------- */
 const b64=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
