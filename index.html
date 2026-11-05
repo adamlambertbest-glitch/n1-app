@@ -247,11 +247,12 @@ tr.done td.k,tr.done td.r,tr.done td.ko{color:var(--muted)}
       <p class="small" id="dataStatus" style="margin:0"></p>
       <div class="row">
         <button class="primary" id="goAdd">사진·PDF로 챕터 추가</button>
-        <input type="file" id="dataFile" accept=".json,application/json,text/plain" class="vh">
+        <input type="file" id="dataFile" class="vh">
         <label for="dataFile" class="btn">정리된 파일 가져오기</label>
         <button id="dataReset" hidden>가져온 파일 지우기</button>
       </div>
       <p class="small" style="margin:0">추가한 단어, 외움 체크, 오답 노트는 모두 이 폰에만 저장되고 앱을 닫아도 남아 있어요. '정리된 파일'은 Claude가 n1-data.json으로 만들어 준 파일이 있을 때만 쓰면 돼요.</p>
+      <div class="row" id="syncRow"><input class="field" id="syncPw" type="password" autocomplete="current-password" placeholder="단어장 비밀번호" style="flex:1;min-width:0;font-family:var(--f-ko)"><button class="primary" id="syncBtn">비밀번호로 불러오기</button></div>
       <div class="msg" id="dataMsg"></div>
     </div>
     <div class="panel install" id="installBox" hidden>
@@ -509,7 +510,7 @@ function renderHome(){
   let R=0,W=0;Object.values(stats).forEach(s=>{R+=s.right||0;W+=s.wrong||0});
   $("pA").style.width=(R+W?R/(R+W)*100:0)+"%";$("pAt").textContent=R+W?Math.round(R/(R+W)*100)+"%":"—";
   $("updatedLine").textContent=`단어 ${ws.length}개 · 문법 ${GRAM.length}개`+(DATA.updated?` · ${DATA.updated} 업데이트`:"");
-  $("dataStatus").textContent=USING_IMPORT?`가져온 파일 사용 중 · ${DATA.updated||"날짜 없음"} · 단어 ${ws.length}개, 문법 ${GRAM.length}개`
+  $("dataStatus").textContent=USING_IMPORT?`${store.get("n1_syncpw","")?"자동 업데이트 켜짐":"가져온 파일 사용 중"} · ${DATA.updated||"날짜 없음"} · 단어 ${ws.length}개, 문법 ${GRAM.length}개`
     :!SAMPLE_WORDS?`챕터 ${CH.length}개 · 단어 ${ws.length}개 · 문법 ${GRAM.length}개`+(custom.length?` (이 폰에서 직접 추가한 챕터 ${custom.length}개 포함)`:"")
     :"아직 내 단어장이 없어서 예시 단어를 보여주고 있어요. 단어 탭 아래에서 사진·PDF로 챕터를 추가하세요.";
   $("dataReset").hidden=!USING_IMPORT;$("dataReset").textContent="가져온 파일 지우기";delete $("dataReset").dataset.armed;
@@ -531,7 +532,7 @@ function validData(d){
 }
 $("dataFile").onchange=e=>{
   const f=e.target.files[0];if(!f)return;const rd=new FileReader();
-  rd.onload=()=>{let d;try{d=JSON.parse(String(rd.result).replace(/^﻿/,""))}catch(err){$("dataMsg").style.color="var(--bad)";$("dataMsg").textContent="JSON 파일을 읽지 못했어요. Claude가 준 n1-data.json 파일이 맞는지 확인해 주세요.";return}
+  rd.onload=()=>{let d;const txt=String(rd.result);try{d=JSON.parse(txt.slice(Math.max(0,txt.indexOf("{"))).replace(/^﻿/,""))}catch(err){$("dataMsg").style.color="var(--bad)";$("dataMsg").textContent="JSON 파일을 읽지 못했어요. Claude가 준 n1-data.json 파일이 맞는지 확인해 주세요. (고른 파일: "+f.name+", "+Math.round(f.size/1024)+"KB) 비밀번호로 불러오기를 쓰면 파일 없이 바로 돼요.";return}
     const bad=validData(d);if(bad){$("dataMsg").style.color="var(--bad)";$("dataMsg").textContent="가져오지 못했어요: "+bad;return}
     try{localStorage.setItem("n1_data",JSON.stringify(d))}catch(err){$("dataMsg").style.color="var(--bad)";$("dataMsg").textContent="폰 저장 공간에 쓰지 못했어요. 시크릿 모드라면 일반 창에서 열어 주세요.";return}
     loadData();loadBookQ();rebuild();chId=null;Q=null;
@@ -951,9 +952,33 @@ function renderReview(){
 $("rQuiz").onclick=()=>startQuiz({src:"wrong",type:"mix",count:999});
 
 /* ---------- boot ---------- */
+/* ---------- 비밀번호 동기화: GitHub의 잠긴 단어 파일(data.enc)을 풀어서 불러와요 ---------- */
+const b64=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
+async function deriveKey(pw,salt){const base=await crypto.subtle.importKey("raw",new TextEncoder().encode(pw),"PBKDF2",false,["deriveKey"]);
+  return crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:200000,hash:"SHA-256"},base,{name:"AES-GCM",length:256},false,["decrypt"])}
+async function syncData(pw,quiet){
+  let r;try{r=await fetch("data.enc",{cache:"no-store"})}catch(e){throw new Error("net")}
+  if(!r.ok)throw new Error("nofile");
+  const e=await r.json(),cur=store.get("n1_data",null);
+  if(quiet&&cur&&cur.rev===e.rev)return false;
+  let plain;try{plain=await crypto.subtle.decrypt({name:"AES-GCM",iv:b64(e.iv)},await deriveKey(pw,b64(e.salt)),b64(e.data))}catch(x){throw new Error("pw")}
+  const d=JSON.parse(new TextDecoder().decode(plain)),bad=validData(d);if(bad)throw new Error("bad");
+  d.rev=e.rev;localStorage.setItem("n1_data",JSON.stringify(d));store.set("n1_syncpw",pw);
+  loadData();loadBookQ();rebuild();return true;
+}
+const SYNC_ERR={pw:"비밀번호가 틀렸어요. 대소문자와 하이픈(-)까지 그대로 입력해 주세요.",nofile:"아직 올라간 단어 파일이 없어요.",net:"인터넷 연결을 확인하고 다시 눌러 주세요.",bad:"단어 파일 형식이 잘못됐어요. Claude에게 알려 주세요."};
+$("syncBtn").onclick=async()=>{const pw=$("syncPw").value.trim();if(!pw){$("syncPw").focus();return}
+  const b=$("syncBtn");b.disabled=true;b.textContent="불러오는 중…";$("dataMsg").style.color="";$("dataMsg").textContent="";
+  try{await syncData(pw,false);$("syncPw").value="";chId=null;Q=null;
+    $("dataMsg").textContent=`불러왔어요: 단어 ${allWords().length}개, 문법 ${GRAM.length}개, 문제 ${BOOKQ.length}개. 앞으로 새 단어가 올라오면 앱을 열 때 자동으로 업데이트돼요.`;renderHome();renderBadge()}
+  catch(err){$("dataMsg").style.color="var(--bad)";$("dataMsg").textContent=SYNC_ERR[err.message]||("불러오지 못했어요: "+err.message)}
+  finally{b.disabled=false;b.textContent="비밀번호로 불러오기"}};
+if(/claude\.ai|claudeusercontent/.test(location.hostname))$("syncRow").hidden=true;
+
 rebuild();
 addEventListener("hashchange",route);
 route();
+{const pw=store.get("n1_syncpw","");if(pw)syncData(pw,true).then(ch=>{if(ch){chId=null;route();$("dataMsg").style.color="";$("dataMsg").textContent=`새 단어가 업데이트됐어요: 단어 ${allWords().length}개, 문법 ${GRAM.length}개, 문제 ${BOOKQ.length}개.`}}).catch(()=>{})}
 if("serviceWorker" in navigator){try{navigator.serviceWorker.register("sw.js").catch(()=>{})}catch(e){}}
 </script>
 
