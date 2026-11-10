@@ -868,7 +868,7 @@ function fillChoices(answer,cands,pool){
 function makeQ(item,type){
   if(item.key.startsWith("q:")&&item.passage)return {item,kind:item.set,pcls:"read",prompt:item.s,
     html:`<div class="passage">${esc(item.passage)}</div><div class="qq">${esc(item.s)}</div>`,answer:item.c[item.a],choices:[...item.c],ccls:"jp long"};
-  if(item.key.startsWith("q:"))return {item,kind:item.set+(item.g?" · 빈칸에 알맞은 것":" · 밑줄 친 단어의 읽기"),pcls:item.s===`{${item.t}}`?"jp":"sent",prompt:item.s,
+  if(item.key.startsWith("q:"))return {item,kind:item.set+(item.g||!/\{/.test(item.s)?" · 빈칸에 알맞은 것":/^[\u3040-\u30ff]+$/.test(item.t)?" · 밑줄 친 말의 한자":" · 밑줄 친 단어의 읽기"),pcls:item.s===`{${item.t}}`?"jp":"sent",prompt:item.s,
     html:esc(item.s).replace(/\{(.+?)\}/,"<u>$1</u>"),answer:item.c[item.a],choices:[...item.c],ccls:"jp"};
   if(item.key.startsWith("g:")){
     const blank=Math.random()<.5&&/\{.+\}/.test(item.ex);
