@@ -868,7 +868,7 @@ function fillChoices(answer,cands,pool){
 function makeQ(item,type){
   if(item.key.startsWith("q:")&&item.passage)return {item,kind:item.set,pcls:"read",prompt:item.s,
     html:`<div class="passage">${esc(item.passage)}</div><div class="qq">${esc(item.s)}</div>`,answer:item.c[item.a],choices:[...item.c],ccls:"jp long"};
-  if(item.key.startsWith("q:"))return {item,kind:item.set+(item.g||!/\{/.test(item.s)?" · 빈칸에 알맞은 것":/^[\u3040-\u30ff]+$/.test(item.t)?" · 밑줄 친 말의 한자":" · 밑줄 친 단어의 읽기"),pcls:item.s===`{${item.t}}`?"jp":"sent",prompt:item.s,
+  if(item.key.startsWith("q:"))return {item,kind:item.set+(/★/.test(item.s)?" · ★에 들어갈 것":item.g||!/\{/.test(item.s)?" · 빈칸에 알맞은 것":/^[\u3040-\u30ff]+$/.test(item.t)?" · 밑줄 친 말의 한자":" · 밑줄 친 단어의 읽기"),pcls:item.s===`{${item.t}}`?"jp":"sent",prompt:item.s,
     html:esc(item.s).replace(/\{(.+?)\}/,"<u>$1</u>"),answer:item.c[item.a],choices:[...item.c],ccls:"jp"};
   if(item.key.startsWith("g:")){
     const blank=Math.random()<.5&&/\{.+\}/.test(item.ex);
@@ -944,10 +944,10 @@ function answer(btn){
   const it0=q.item,rd=!!it0.passage,bq=it0.key.startsWith("q:"),it=bq?((it0.g&&KEY["g:"+it0.g])||qWord(it0)||{k:it0.t,r:it0.c[it0.a],m:"",note:""}):it0,g=it.key?.startsWith("g:");
   const filled=bq&&it0.g?(()=>{const parts=it0.c[it0.a].split(" / ");let n=0;return esc(it0.s).replace(/（　+）/g,()=>`<mark>${esc(parts[n++]||"")}</mark>`)})():"";
   $("qReveal").innerHTML=`<div class="reveal"><span class="verdict ${ok?"ok":"no"}">${ok?"정답":"오답"}</span>`+
-    (rd?`<span>정답: ${q.choices.indexOf(q.answer)+1}번 ${esc(q.answer)}</span><span class="note">${it0.book?"책에 표시된 정답이에요.":it0.sure===false?"헷갈리는 문제예요. 정답 해설집(p.54–61)으로 한 번 확인해 주세요.":"정답은 Claude가 지문을 읽고 고른 거예요. 해설집과 다르면 알려 주세요."}</span>`:g?(filled?`<span class="r">${filled}</span>`:"")+`<span class="w">${esc(it.p)}</span><span>${esc(it.m)}</span>${it.conn?`<span class="small">${esc(it.conn)}</span>`:""}<span class="r">${exHTML(it.ex)}</span><span class="small">${esc(it.ko)}</span>`
-      :(bq?`<span class="r">${esc(it0.s).replace(/\{(.+?)\}/,"<u>$1</u>")}</span>`:"")+`<span class="w">${esc(it.k||it.r)}</span><span class="r">${trapHTML(it.r,it.k)}</span>${it.m?`<span>${esc(it.m)}</span>`:""}${it.note?`<span class="note">${esc(it.note)}</span>`:""}`)+
-    `<div class="row" style="margin-top:8px">${g||rd?"":'<button id="qSpeak">🔊 발음</button>'}<button class="primary" id="qNext" style="margin-left:auto">다음 ▶</button></div></div>`;
-  if(!g&&!rd)$("qSpeak").onclick=()=>speak(it.r);
+    (bq&&it0.exp&&!it0.g&&!rd?`<span class="w">${esc(q.answer)}</span><span class="r">${esc(it0.exp)}</span>`:"")+(bq&&it0.exp&&!it0.g&&!rd?"":rd?`<span>정답: ${q.choices.indexOf(q.answer)+1}번 ${esc(q.answer)}</span><span class="note">${it0.book?"책에 표시된 정답이에요.":it0.sure===false?"헷갈리는 문제예요. 정답 해설집(p.54–61)으로 한 번 확인해 주세요.":"정답은 Claude가 지문을 읽고 고른 거예요. 해설집과 다르면 알려 주세요."}</span>`:g?(filled?`<span class="r">${filled}</span>`:"")+`<span class="w">${esc(it.p)}</span><span>${esc(it.m)}</span>${it.conn?`<span class="small">${esc(it.conn)}</span>`:""}<span class="r">${exHTML(it.ex)}</span><span class="small">${esc(it.ko)}</span>`
+      :(bq?`<span class="r">${esc(it0.s).replace(/\{(.+?)\}/,"<u>$1</u>")}</span>`:"")+`<span class="w">${esc(it.k||it.r)}</span><span class="r">${trapHTML(it.r,it.k)}</span>${it.m?`<span>${esc(it.m)}</span>`:""}${it.note?`<span class="note">${esc(it.note)}</span>`:""}`)+(it0.exp&&(it0.g||rd)?`<span class="note">💡 ${esc(it0.exp)}</span>`:"")+
+    `<div class="row" style="margin-top:8px">${g||rd||(bq&&it0.exp)?"":'<button id="qSpeak">🔊 발음</button>'}<button class="primary" id="qNext" style="margin-left:auto">다음 ▶</button></div></div>`;
+  if($("qSpeak"))$("qSpeak").onclick=()=>speak(it.r);
   $("qNext").onclick=nextQ;$("qNext").focus();
 }
 function nextQ(){Q.i++;Q.answered=false;if(Q.i<Q.items.length)Q.cur=makeQ(Q.items[Q.i],Q.opts.type);renderQuiz();window.scrollTo(0,0)}
